@@ -1,0 +1,58 @@
+version: '3'
+
+services:
+  php_ads_api:
+    restart: unless-stopped
+    env_file:
+      - .env
+    build:
+      context: ../ads_api
+      dockerfile: Dockerfile
+    volumes:
+      - './ads_api/src:/var/www/html/ads_api'
+    depends_on:
+      - ads_mysql
+    ports:
+      - "8000:8000"
+
+  php_ads_front:
+    image: php:7.4-fpm
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - './ads_front/src:/var/www/html/ads_front'
+    depends_on:
+      - ads_mysql
+
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+    volumes:
+      - './nginx/default.conf:/etc/nginx/conf.d/default.conf'
+      - './ads_front/src:/var/www/html/ads_front'
+    environment:
+      - NGINX_HOST=${NGINX_HOST}
+    depends_on:
+      - php_ads_api
+      - php_ads_front
+
+  ads_mysql:
+    restart: unless-stopped
+    image: mysql:latest
+    env_file:
+      - .env
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_USER}
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - './ads_api/src/database/mysql:/var/lib/mysql'
+      - './ads_api/src/database/init/db_init.sql:/data/application/init.sql'
+    command: --init-file /data/application/init.sql
